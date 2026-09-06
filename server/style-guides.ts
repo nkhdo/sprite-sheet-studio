@@ -70,6 +70,9 @@ export async function removeStyleGuideImage(id: string): Promise<ProjectView> {
   }
 
   const updated = await updateLatest({
+    ...(manifest.styleGuideSelection.length === 1 && manifest.color_palette === "style-guides"
+      ? { color_palette: "unrestricted" as const, colorPaletteNotice: "The last Style Guide Image was removed. Color palette switched to Unrestricted." }
+      : {}),
     styleGuideSelection: manifest.styleGuideSelection.filter((candidate) => candidate !== id),
   });
   return toView(await pruneUnreferencedStyleGuides(updated));

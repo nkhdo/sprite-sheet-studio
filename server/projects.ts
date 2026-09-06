@@ -1,3 +1,5 @@
+import { colorPaletteLibrary } from "./color-palettes.js";
+import { isColorPaletteSetting, legacyColorPaletteSetting, type ColorPaletteSetting, type AppliedColorPalette } from "../src/lib/color-palettes.js";
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -46,6 +48,9 @@ export interface ProjectManifest {
   draftFrameSize: number;
   draftSubjectFillPct: number;
   draftColorCount: number | null;
+  color_palette: ColorPaletteSetting;
+  colorPaletteNotice: string;
+  appliedColorPalette: AppliedColorPalette | null;
   animationDraftName: string;
   animationDraftFps: number;
   spritePrompt: string;
@@ -92,6 +97,9 @@ export interface ProjectView {
   draftFrameSize: number;
   draftSubjectFillPct: number;
   draftColorCount: number | null;
+  color_palette: ColorPaletteSetting;
+  colorPaletteNotice: string;
+  appliedColorPalette: AppliedColorPalette | null;
   animationDraftName: string;
   animationDraftFps: number;
   spritePrompt: string;
@@ -155,6 +163,9 @@ export function emptyManifest(id: string = randomUUID(), label = "Untitled proje
     draftFrameSize: 128,
     draftSubjectFillPct: 70,
     draftColorCount: 16,
+    color_palette: "count:16",
+    colorPaletteNotice: "",
+    appliedColorPalette: null,
     animationDraftName: "",
     animationDraftFps: 12,
     spritePrompt: "",
@@ -234,10 +245,28 @@ export async function readManifest(dirName: string): Promise<ProjectManifest> {
     if (parsed.sourceVideo === undefined && hydrated.frames.length > 0) {
       hydrated.sourceVideo = PROJECT_FILES.source;
     }
-    return hydrated;
+    hydrated.color_palette = parsed.color_palette ?? legacyColorPaletteSetting(hydrated.spritePaletteLock, hydrated.draftColorCount);
+    return reconcileColorPalette(hydrated);
   } catch {
     return emptyManifest(dirName);
   }
+}
+
+// Resolve removed selections on every read. This does not rewrite a Project
+// while its generation holds the write lock or change its acquired artifacts.
+export async function reconcileColorPalette(
+  manifest: ProjectManifest,
+  library = colorPaletteLibrary,
+): Promise<ProjectManifest> {
+  if ((manifest.color_palette === "style-guides" && !manifest.styleGuideSelection.length) ||
+      (manifest.color_palette.startsWith("palette:") &&
+        !(await library.list()).some(({ id }) => id === manifest.color_palette.slice(8)))) {
+    return {
+      ...manifest, color_palette: "unrestricted",
+      colorPaletteNotice: "The selected palette is unavailable. Color palette switched to Unrestricted.",
+    };
+  }
+  return manifest;
 }
 
 export async function writeManifest(
@@ -275,6 +304,9 @@ export function toView(m: ProjectManifest): ProjectView {
     draftFrameSize: m.draftFrameSize,
     draftSubjectFillPct: m.draftSubjectFillPct,
     draftColorCount: m.draftColorCount,
+    color_palette: m.color_palette,
+    colorPaletteNotice: m.colorPaletteNotice,
+    appliedColorPalette: m.appliedColorPalette,
     animationDraftName: m.animationDraftName,
     animationDraftFps: m.animationDraftFps,
     spritePrompt: m.spritePrompt,
@@ -437,7 +469,7 @@ export async function patchProjectDraft(
   patch: Partial<Pick<ProjectManifest,
     "spritePrompt" | "spriteModel" | "spritePaletteLock" | "motionPrompt" |
     "motionModel" | "paletteLock" | "hardAlphaEdges" | "spriteAcquisitionMode" |
-    "draftFrameSize" | "draftSubjectFillPct" | "draftColorCount" |
+    "draftFrameSize" | "draftSubjectFillPct" | "draftColorCount" | "color_palette" |
     "animationDraftName" | "animationDraftFps"
   >>,
   base: Record<string, unknown>,
@@ -446,7 +478,7 @@ export async function patchProjectDraft(
   if (!existsSync(manifestPath(id))) throw new Error("project not found");
   const current = await readManifest(id);
   for (const [key, value] of Object.entries(patch)) {
-    const valid = key === "spritePrompt" || key === "spriteModel" || key === "motionPrompt" || key === "motionModel" || key === "animationDraftName"
+    const valid = key === "color_palette" ? isColorPaletteSetting(value) : key === "spritePrompt" || key === "spriteModel" || key === "motionPrompt" || key === "motionModel" || key === "animationDraftName"
       ? typeof value === "string"
       : key === "spritePaletteLock" || key === "paletteLock" || key === "hardAlphaEdges"
         ? typeof value === "boolean"
@@ -471,7 +503,16 @@ export async function patchProjectDraft(
       throw error;
     }
   }
-  return toView(await writeManifest(id, { ...current, ...patch }));
+  if (patch.color_palette === "style-guides" && !current.styleGuideSelection.length) {
+    throw new Error("Select Style Guide Images to use their colors.");
+  }
+  if (patch.color_palette?.startsWith("palette:") &&
+      !(await colorPaletteLibrary.list()).some(({ id }) => id === patch.color_palette!.slice(8))) {
+    throw new Error("Color Palette is unavailable. Select another palette or Unrestricted.");
+  }
+  return toView(await writeManifest(id, {
+    ...current, ...patch, ...(patch.color_palette ? { colorPaletteNotice: "" } : {}),
+  }));
 }
 
 function validateLabel(label: string): string {

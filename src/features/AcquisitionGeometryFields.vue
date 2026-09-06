@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useStudio } from "../studio/context";
 
+defineProps<{ hidePalette?: boolean }>();
 const studio = useStudio();
 </script>
 
@@ -18,7 +19,7 @@ const studio = useStudio();
         <option v-for="fill in [50, 70, 85]" :key="fill" :value="fill">{{ fill }}%</option>
       </select>
     </div>
-    <div class="field">
+    <div v-if="!hidePalette" class="field">
       <label class="field__label">Palette</label>
       <select v-model="studio.state.draft.colorCount" class="select">
         <option :value="null">Off</option>

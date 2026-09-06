@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SettingsModal from "./SettingsModal.vue";
+import { paletteLibrary } from "../studio/color-palettes";
 import { useStudio } from "../studio/context";
 import { currentTheme, toggleTheme } from "../theme";
 import UiIcon from "../ui/UiIcon.vue";
@@ -87,6 +89,8 @@ const studio = useStudio();
       >
         <UiIcon :name="currentTheme === 'dark' ? 'sun' : 'moon'" />
       </button>
+      <button class="settings-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog" @click="paletteLibrary.settingsOpen = true"><UiIcon name="settings" /></button>
     </div>
   </header>
+  <SettingsModal v-if="paletteLibrary.settingsOpen" @close="paletteLibrary.settingsOpen = false" />
 </template>

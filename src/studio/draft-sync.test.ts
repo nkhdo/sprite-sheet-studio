@@ -5,7 +5,8 @@ import type { ProjectDraft } from "./state";
 const draft: ProjectDraft = {
   spritePrompt: "", spriteModel: "image", spritePaletteLock: false,
   spriteAcquisitionMode: "generate", frameSize: 128, subjectFillPct: 70,
-  colorCount: 16, motionPrompt: "", motionModel: "video",
+  colorCount: 16,
+  color_palette: "count:16", motionPrompt: "", motionModel: "video",
   paletteLock: false, hardAlphaEdges: false, animationName: "", animationFps: 12,
 };
 

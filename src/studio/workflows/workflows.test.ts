@@ -40,6 +40,17 @@ function environment(server: Record<string, unknown> = {}): WorkflowEnvironment 
 }
 
 describe("workflow modules", () => {
+  it("passes the unified palette independently of upload color count", async () => {
+    const generateSprite = vi.fn().mockResolvedValue({ mutation: { revision: 2, updatedAt: "", changes: {} }, dataUrl: "data:image/png;base64,AA==" });
+    const env = environment({ generateSprite });
+    env.state.draft.spritePrompt = "a hero";
+    env.state.draft.color_palette = "count:8";
+    env.state.draft.colorCount = 32;
+    await createReferenceActions(env).generateReference();
+    expect(generateSprite.mock.calls[0][5]).toBe("count:8");
+    expect(env.state.draft.colorCount).toBe(32);
+  });
+
   it("Reference Sprite Acquisition rejects an empty prompt locally", async () => {
     const env = environment();
     await createReferenceActions(env).generateReference();

@@ -32,7 +32,7 @@ export function createReferenceActions(env: WorkflowEnvironment) {
             frameSize: state.draft.frameSize,
             subjectFillPct: state.draft.subjectFillPct,
             colorCount: state.draft.colorCount,
-          }, state.draft.spritePaletteLock);
+          }, false, state.draft.color_palette);
         return {
           ...result.mutation,
           changes: { ...result.mutation.changes, spriteUrl: result.dataUrl },

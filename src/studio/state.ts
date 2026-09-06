@@ -1,3 +1,4 @@
+import { legacyColorPaletteSetting, type ColorPaletteSetting } from "../lib/color-palettes";
 import { computed, reactive, type ComputedRef } from "vue";
 import type { AnimationView, ProjectView } from "../lib/api";
 
@@ -25,6 +26,7 @@ export interface ProjectDraft {
   frameSize: number;
   subjectFillPct: number;
   colorCount: number | null;
+  color_palette: ColorPaletteSetting;
   motionPrompt: string;
   motionModel: string;
   paletteLock: boolean;
@@ -64,6 +66,7 @@ export function draftFromProject(project: ProjectView): ProjectDraft {
     frameSize: project.draftFrameSize,
     subjectFillPct: project.draftSubjectFillPct,
     colorCount: project.draftColorCount,
+    color_palette: project.color_palette ?? legacyColorPaletteSetting(project.spritePaletteLock, project.draftColorCount),
     motionPrompt: project.motionPrompt,
     motionModel: project.motionModel,
     paletteLock: project.paletteLock,
@@ -84,6 +87,7 @@ export function createStudioState(): StudioState {
       frameSize: 128,
       subjectFillPct: 70,
       colorCount: 16,
+      color_palette: "count:16",
       motionPrompt: "",
       motionModel: "x-ai/grok-imagine-video",
       paletteLock: false,

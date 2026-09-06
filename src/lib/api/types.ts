@@ -1,3 +1,4 @@
+import type { ColorPaletteSetting, AppliedColorPalette } from "../color-palettes";
 export interface ProjectView {
   id: string;
   label: string;
@@ -7,6 +8,9 @@ export interface ProjectView {
   draftFrameSize: number;
   draftSubjectFillPct: number;
   draftColorCount: number | null;
+  color_palette?: ColorPaletteSetting;
+  colorPaletteNotice?: string;
+  appliedColorPalette?: AppliedColorPalette | null;
   animationDraftName: string;
   animationDraftFps: number;
   spritePrompt: string;

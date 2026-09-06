@@ -11,6 +11,7 @@ export function toServerDraft(draft: Partial<ProjectDraft>): Record<string, unkn
   }
   if ("frameSize" in draft) result.draftFrameSize = draft.frameSize;
   if ("subjectFillPct" in draft) result.draftSubjectFillPct = draft.subjectFillPct;
+  if ("color_palette" in draft) result.color_palette = draft.color_palette;
   if ("colorCount" in draft) result.draftColorCount = draft.colorCount;
   if ("motionPrompt" in draft) result.motionPrompt = draft.motionPrompt;
   if ("motionModel" in draft) result.motionModel = draft.motionModel;

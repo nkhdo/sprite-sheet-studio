@@ -5,6 +5,7 @@ import BaseButton from "../ui/BaseButton.vue";
 import BaseStatus from "../ui/BaseStatus.vue";
 import FileDropzone from "../ui/FileDropzone.vue";
 import UiIcon from "../ui/UiIcon.vue";
+import ColorPaletteField from "./ColorPaletteField.vue";
 import AcquisitionGeometryFields from "./AcquisitionGeometryFields.vue";
 
 const studio = useStudio();
@@ -45,7 +46,7 @@ function addStyleGuides(event: Event) {
           <textarea id="sprite-prompt" v-model="studio.state.draft.spritePrompt" class="textarea" rows="3" placeholder="Describe the character or object…" />
         </div>
         <div class="field" data-form-row="model"><label class="field__label" for="sprite-model">Model</label><select id="sprite-model" v-model="studio.state.draft.spriteModel" class="select"><option v-for="model in studio.imageModels" :key="model.id" :value="model.id">{{ model.label }}</option></select></div>
-        <AcquisitionGeometryFields data-form-row="geometry" />
+        <AcquisitionGeometryFields data-form-row="geometry" hide-palette />
         <div class="style-guide-field" data-form-row="style-guides">
           <div class="style-guide-field__header">
             <span class="field__label">Style Guide Images · optional</span>
@@ -54,7 +55,7 @@ function addStyleGuides(event: Event) {
           <div class="style-guide-list">
             <div v-for="guide in studio.state.project?.styleGuides" :key="guide.id" class="style-guide-thumb">
               <img :src="guide.url" alt="" />
-              <button class="style-guide-thumb__remove" type="button" :aria-label="`Remove ${guide.originalFilename}`" @click="studio.actions.removeStyleGuide(guide.id)">×</button>
+              <button class="style-guide-thumb__remove" type="button" :disabled="busy || styleOperation.phase === 'running'" :aria-label="`Remove ${guide.originalFilename}`" @click="studio.actions.removeStyleGuide(guide.id)">×</button>
             </div>
             <label
               v-if="(studio.state.project?.styleGuides.length ?? 0) < guideLimit"
@@ -69,7 +70,7 @@ function addStyleGuides(event: Event) {
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 multiple
-                :disabled="styleOperation.phase === 'running'"
+                :disabled="styleOperation.phase === 'running' || busy"
                 @change="addStyleGuides"
               />
               <UiIcon name="plus" />
@@ -77,8 +78,8 @@ function addStyleGuides(event: Event) {
           </div>
           <BaseStatus :message="styleOperation.message" :kind="styleOperation.phase === 'error' ? 'error' : styleOperation.phase === 'success' ? 'success' : 'info'" :busy="styleOperation.phase === 'running'" />
         </div>
-        <label class="style-match-row" data-form-row="palette-lock"><input v-model="studio.state.draft.spritePaletteLock" type="checkbox" :disabled="!studio.state.project?.styleGuides.length" /><span class="style-match-row__text"><span class="style-match-row__title">Palette Lock</span><span class="style-match-row__hint">Restrict colors to the Style Guide Images’ palette</span></span></label>
-        <BaseButton data-form-row="generate" variant="primary" block :busy="busy" :disabled="!studio.hasApiKey" @click="studio.actions.generateReference">Generate Reference Sprite</BaseButton>
+        <ColorPaletteField />
+        <BaseButton data-form-row="generate" variant="primary" block :busy="busy" :disabled="!studio.hasApiKey || styleOperation.phase === 'running'" @click="studio.actions.generateReference">Generate Reference Sprite</BaseButton>
       </div>
       <div v-else class="acquisition-panel">
         <FileDropzone input-id="reference-upload" accept="image/png,image/jpeg,image/webp" label="Drop an image here or choose a file" hint="PNG, JPEG, or WebP · max 10 MB" :disabled="busy" @files="studio.actions.uploadReference" />

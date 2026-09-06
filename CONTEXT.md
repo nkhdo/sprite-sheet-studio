@@ -64,12 +64,24 @@ _Avoid_: Spritesheet when referring to the complete saved asset, animation clip
 The ordered list of Movement Frames in an Animation Draft or Animation. Order and repeated frames are meaningful.
 _Avoid_: Frame selection, selected frame set
 
+**Color Palette**:
+A named set of explicitly chosen colors in a shared library available across Projects. A Project can select one to guide Reference Sprite generation and constrain the resulting subject to its exact colors, separately from the chroma-green background.
+_Avoid_: Subject Palette when referring to user-defined colors, color count
+
+**Color Palette Setting**:
+The Project's choice of color constraints for its next generated Reference Sprite: unrestricted colors, a subject color-count limit, colors from its Style Guide Selection, or a named Color Palette. The chroma-green background is separate; Style Guide colors are available only when Style Guide Images are selected.
+_Avoid_: Palette Lock when referring to the complete generation color setting
+
+**Applied Color Palette**:
+The copy of a selected Color Palette's colors frozen when generation starts and retained with the successfully acquired Reference Sprite. Later edits or deletion of the shared Color Palette do not alter it.
+_Avoid_: Selected palette when referring to colors already applied
+
 **Subject Palette**:
 The set of colors present in the opaque, non-background pixels of the current Reference Sprite. The chroma-green background color is never part of the Subject Palette, regardless of how much of the image it covers.
 _Avoid_: Sprite colors, image palette
 
 **Palette Lock**:
-A per-generation option that constrains generated output to the palette of the images that generation is based on. Reference Sprite conformance uses the applied Style Guide Images; Movement Frame conformance uses local visual context to select from the Subject Palette. The alpha channel is never altered.
+A Movement Frame option that uses local visual context to constrain colors to the Reference Sprite's Subject Palette without altering alpha. Reference Sprite color constraints are expressed through the Color Palette Setting.
 _Avoid_: Color fixing, color correction, palette matching
 
 **Hard Alpha Edges**:

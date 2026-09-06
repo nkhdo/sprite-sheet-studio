@@ -1,4 +1,7 @@
 import "dotenv/config";
+import { colorPaletteLibrary } from "./color-palettes.js";
+import { resolveReferenceColors, applyReferenceColors } from "./reference-colors.js";
+import { isColorPaletteSetting, legacyColorPaletteSetting } from "../src/lib/color-palettes.js";
 import express, { type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import path from "node:path";
@@ -59,13 +62,14 @@ import {
   commitReferenceUpload,
   discardPreparedUpload,
   normalizeReferenceImage,
+  assessBackground,
   prepareReferenceUpload,
   applyTargetGeometry,
   parseTargetGeometry,
   regenerateTransparentReferencePreview,
   removeTransparentReferencePreview,
 } from "./reference-sprite.js";
-import { conformToReferencePalette, dataUrlToBuffer } from "./palette-lock.js";
+import { dataUrlToBuffer } from "./palette-lock.js";
 import { createAnimation, deleteAnimation, updateAnimation } from "./animations.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -80,8 +84,9 @@ const imageUpload = multer({
 });
 const projectWriteTails = new Map<string, Promise<void>>();
 
-const STYLE_GUIDE_FIELDS = ["styleGuides", "styleGuidesChanged"] as const;
+const STYLE_GUIDE_FIELDS = ["styleGuides", "styleGuidesChanged", "color_palette", "colorPaletteNotice"] as const;
 const REFERENCE_FIELDS = [
+  "appliedColorPalette",
   "spritePrompt", "spriteModel", "styleGuides", "styleGuidesChanged",
   "spritePaletteLock", "spriteAcquisition", "spriteOriginalFilename",
   "backgroundSuitability", "spriteUrl", "transparentReferencePreviewUrl",
@@ -168,6 +173,32 @@ function asString(v: unknown, name: string, max = 2_000): string {
   return v.trim();
 }
 
+app.get("/api/color-palettes", async (_req, res) => {
+  try { res.json(await colorPaletteLibrary.list()); } catch (error) { handleError(error, res); }
+});
+
+app.post("/api/color-palettes/save", async (req, res) => {
+  try { res.json(await colorPaletteLibrary.save(req.body ?? {})); } catch (error) { handleError(error, res); }
+});
+
+app.get("/api/color-palettes/:id/usage", async (req, res) => {
+  try {
+    const id = safeProjectId(req.params.id);
+    const projects = await listSavedProjects();
+    const manifests = await Promise.all(projects.map((project) => readManifest(project.id)));
+    res.json({ count: manifests.filter((project) => project.color_palette === `palette:${id}`).length });
+  } catch (error) { handleError(error, res); }
+});
+
+app.post("/api/color-palettes/delete", async (req, res) => {
+  try {
+    await colorPaletteLibrary.delete(req.body?.id, req.body?.revision);
+    // Project hydration resolves deleted selections without racing an in-flight
+    // generation's manifest write. Its applied snapshot remains independent.
+    res.json({ ok: true });
+  } catch (error) { handleError(error, res); }
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, hasApiKey: HAS_KEY });
 });
@@ -226,7 +257,7 @@ app.post("/api/projects/draft", async (req, res) => {
     const id = activeProjectId();
     const revision = Number(req.body?.revision);
     if (!Number.isInteger(revision) || revision < 0) throw new Error("revision is required");
-    const allowed = ["spritePrompt", "spriteModel", "spritePaletteLock", "motionPrompt", "motionModel", "paletteLock", "hardAlphaEdges", "spriteAcquisitionMode", "draftFrameSize", "draftSubjectFillPct", "draftColorCount", "animationDraftName", "animationDraftFps"] as const;
+    const allowed = ["spritePrompt", "spriteModel", "spritePaletteLock", "motionPrompt", "motionModel", "paletteLock", "hardAlphaEdges", "spriteAcquisitionMode", "draftFrameSize", "draftSubjectFillPct", "draftColorCount", "color_palette", "animationDraftName", "animationDraftFps"] as const;
     const patch = Object.fromEntries(allowed.filter((key) => key in (req.body?.patch ?? {})).map((key) => [key, req.body.patch[key]]));
     const base = req.body?.base && typeof req.body.base === "object" ? req.body.base : {};
     const view = await patchProjectDraft(id, revision, patch, base);
@@ -310,14 +341,17 @@ app.post("/api/sprites/generate", requireKey, async (req, res) => {
       throw new Error("unsupported image model");
     }
     const model = requestedModel ?? DEFAULT_IMAGE_MODEL;
-    const spritePaletteLock = req.body?.spritePaletteLock === true;
+    const setting = req.body?.color_palette ?? legacyColorPaletteSetting(req.body?.spritePaletteLock === true, req.body?.colorCount ?? null);
+    if (!isColorPaletteSetting(setting)) throw new Error("Invalid Color Palette setting.");
+    const spritePaletteLock = setting === "style-guides";
     const geometry = parseTargetGeometry({
       frameSize: req.body?.frameSize,
       subjectFillPct: req.body?.subjectFillPct,
-      colorCount: req.body?.colorCount ?? null,
+      colorCount: null,
     });
     const projectBeforeGeneration = await readManifest(activeProjectId());
     const styleGuideDataUrls = await readSelectedStyleGuideDataUrls(projectBeforeGeneration);
+    const colors = await resolveReferenceColors(setting, styleGuideDataUrls.map(dataUrlToBuffer));
     let generatedBase64: string;
     try {
       generatedBase64 = await generateSpriteImage(prompt, model, {
@@ -326,6 +360,8 @@ app.post("/api/sprites/generate", requireKey, async (req, res) => {
           subjectFillPct: geometry.subjectFillPct,
         },
         styleGuideDataUrls,
+        subjectColors: colors.applied?.colors,
+        subjectColorCount: colors.count,
       });
     } catch (error) {
       if (projectBeforeGeneration.styleGuideSelection.length === 0) throw error;
@@ -340,15 +376,10 @@ app.post("/api/sprites/generate", requireKey, async (req, res) => {
         `Generation with Style Guide Images ${filenames.join(", ")} failed: ${message}`,
       );
     }
-    // Palette Lock post-process: constrain the generated sprite to the union
-    // palette of the Style Guide Images only. The uploaded Reference Sprite is
-    // never part of the generation flow.
-    const conformed = await conformToReferencePalette(
-      Buffer.from(generatedBase64, "base64"),
-      spritePaletteLock ? styleGuideDataUrls.map(dataUrlToBuffer) : [],
-    );
-    const normalized = await normalizeReferenceImage(conformed);
+    const normalized = await normalizeReferenceImage(Buffer.from(generatedBase64, "base64"));
     const applied = await applyTargetGeometry(normalized.buffer, geometry);
+    applied.buffer = await applyReferenceColors(applied.buffer, colors);
+    applied.backgroundSuitability = await assessBackground(applied.buffer);
     const base64 = applied.buffer.toString("base64");
 
     // A replacement sprite invalidates its video and every downstream artifact.
@@ -366,6 +397,7 @@ app.post("/api/sprites/generate", requireKey, async (req, res) => {
       spriteModel: model,
       appliedStyleGuideSet: [...projectBeforeGeneration.styleGuideSelection],
       spritePaletteLock,
+      appliedColorPalette: colors.applied,
       spriteAcquisition: "generated",
       spriteOriginalFilename: null,
       backgroundSuitability: applied.backgroundSuitability,
@@ -373,7 +405,7 @@ app.post("/api/sprites/generate", requireKey, async (req, res) => {
       spriteDimensions: dims ?? applied.dimensions,
       targetFrameSize: geometry.targetFrameSize,
       subjectFillPct: geometry.subjectFillPct,
-      colorCount: geometry.colorCount,
+      colorCount: colors.count,
       subjectFillMeasured: applied.subjectFillMeasured,
       sourceVideo: null,
       motionPrompt: "",

@@ -1,4 +1,5 @@
 import "./styles/main.css";
+import { createVfm } from "vue-final-modal";
 import { createApp } from "vue";
 import { RouterView } from "vue-router";
 import { createStudioRouter } from "./router";
@@ -8,4 +9,4 @@ if (!root) {
   throw new Error("#app not found");
 }
 
-createApp(RouterView).use(createStudioRouter()).mount(root);
+createApp(RouterView).use(createStudioRouter()).use(createVfm()).mount(root);

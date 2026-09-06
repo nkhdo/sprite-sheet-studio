@@ -59,6 +59,8 @@ interface ImageGenerationResponse {
 export interface SpriteImageGenerationOptions {
   geometry?: { size: { w: number; h: number }; subjectFillPct: number };
   styleGuideDataUrls?: readonly string[];
+  subjectColors?: readonly string[];
+  subjectColorCount?: number | null;
 }
 
 function isPng(buffer: Buffer): boolean {
@@ -164,7 +166,11 @@ export async function generateSpriteImage(
     options.geometry && modelConfig.sizeStrategy === "prompt-only"
       ? `\n\n${targetSizeDirective(options.geometry.size)}`
       : "";
-  const fullPrompt = `${prompt.trim()}${styleDirective}\n\n${CHROMA_DIRECTIVE}${fillDirective}${sizeDirective}`;
+  const paletteDirective = options.subjectColors?.length
+    ? `\n\nUse only these exact hex colors for the subject: ${options.subjectColors.join(", ")}. Not every color must appear. These colors take priority over the Style Guide Images' colors. Keep the background separate as #00b140. Any listed green is explicitly allowed on the subject.`
+    : options.subjectColorCount
+      ? `\n\nUse at most ${options.subjectColorCount} colors for the subject, excluding the chroma-green background.` : "";
+  const fullPrompt = `${prompt.trim()}${styleDirective}\n\n${CHROMA_DIRECTIVE}${fillDirective}${sizeDirective}${paletteDirective}`;
 
   const res = await fetch(`${OPENROUTER_BASE}/images`, {
     method: "POST",

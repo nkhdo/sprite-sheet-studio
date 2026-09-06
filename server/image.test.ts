@@ -7,6 +7,17 @@ const PNG_SIGNATURE_BASE64 = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toSt
 );
 const FRAME_SIZES = [32, 64, 128, 192, 256, 384, 512] as const;
 
+test("named subject colors override guide colors in the OpenRouter prompt", async (t) => {
+  const bodies = mockImageFetch(t);
+  await generateSpriteImage("a hero", "openai/gpt-image-2", {
+    subjectColors: ["#ff0000", "#00b140"],
+    styleGuideDataUrls: ["data:image/png;base64,guide"],
+  });
+  assert.match(String(bodies[0].prompt), /only these exact hex colors for the subject: #ff0000, #00b140/);
+  assert.match(String(bodies[0].prompt), /take priority over the Style Guide Images' colors/);
+  assert.match(String(bodies[0].prompt), /listed green is explicitly allowed/);
+});
+
 function mockImageFetch(t: TestContext): Array<Record<string, unknown>> {
   const originalFetch = globalThis.fetch;
   const originalApiKey = process.env.OPENROUTER_API_KEY;

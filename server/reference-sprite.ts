@@ -390,6 +390,7 @@ export async function commitReferenceUpload(uploadId: string) {
   let manifest = await updateLatest({
     spritePrompt: "",
     spriteAcquisition: "uploaded",
+    appliedColorPalette: null,
     appliedStyleGuideSet: [],
     spriteOriginalFilename: prepared.originalFilename,
     backgroundSuitability: prepared.backgroundSuitability,

@@ -89,3 +89,6 @@
   font-size: 11px;
   line-height: 1.4;
 }
+
+.palette-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.palette-swatch { display: inline-block; width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 4px; }

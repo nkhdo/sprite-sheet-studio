@@ -1,8 +1,10 @@
+import type { ColorPaletteSetting } from "../color-palettes";
 import { getJson, postJson, projectHeaders } from "./transport";
 import type { AcquisitionGeometry, ImageModelsResponse, ProjectMutation, ProjectRequestContext, ProjectView } from "./types";
 
-export type StyleGuideMutation = ProjectMutation<Pick<ProjectView, "styleGuides" | "styleGuidesChanged">>;
+export type StyleGuideMutation = ProjectMutation<Pick<ProjectView, "styleGuides" | "styleGuidesChanged" | "color_palette" | "colorPaletteNotice">>;
 export type ReferenceMutation = ProjectMutation<Pick<ProjectView,
+  "appliedColorPalette" |
   "spritePrompt" | "spriteModel" | "styleGuides" | "styleGuidesChanged" |
   "spritePaletteLock" | "spriteAcquisition" | "spriteOriginalFilename" |
   "backgroundSuitability" | "spriteUrl" | "transparentReferencePreviewUrl" |
@@ -32,6 +34,7 @@ export function generateSprite(
   model?: string,
   geometry?: AcquisitionGeometry,
   spritePaletteLock?: boolean,
+  color_palette?: ColorPaletteSetting,
 ): Promise<GenerateSpriteResponse> {
   return postJson("/api/sprites/generate", {
     prompt,
@@ -40,6 +43,7 @@ export function generateSprite(
     subjectFillPct: geometry?.subjectFillPct,
     colorCount: geometry?.colorCount ?? null,
     spritePaletteLock: spritePaletteLock === true,
+    ...(color_palette ? { color_palette } : {}),
   }, context);
 }
 

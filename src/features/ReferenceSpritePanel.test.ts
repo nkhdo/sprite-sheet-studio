@@ -109,7 +109,7 @@ describe("ReferenceSpritePanel", () => {
       global: { provide: { [studioKey as symbol]: context } },
     });
     expect(wrapper.findAll("[data-form-row]").map((row) => row.attributes("data-form-row"))).toEqual([
-      "prompt", "model", "geometry", "style-guides", "palette-lock", "generate",
+      "prompt", "model", "geometry", "style-guides", "color-palette", "generate",
     ]);
   });
 });
