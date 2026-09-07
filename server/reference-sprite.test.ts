@@ -9,7 +9,7 @@ import {
   parseTargetGeometry,
 } from "./reference-sprite.js";
 
-test("transparent preview removes only border-connected chroma", async () => {
+test("transparent preview removes exterior and enclosed chroma while preserving the subject", async () => {
   const redRing = await sharp({
     create: { width: 3, height: 3, channels: 3, background: { r: 200, g: 30, b: 30 } },
   }).composite([{
@@ -28,7 +28,8 @@ test("transparent preview removes only border-connected chroma", async () => {
   assert.equal(info.width, 5);
   assert.equal(info.height, 5);
   assert.equal(data[3], 0);
-  assert.equal(data[(2 * 5 + 2) * 4 + 3], 255);
+  assert.equal(data[(2 * 5 + 2) * 4 + 3], 0);
+  assert.deepEqual([...data.subarray((1 * 5 + 1) * 4, (1 * 5 + 1) * 4 + 4)], [200, 30, 30, 255]);
 });
 
 test("recognizes a uniform chroma-green border as suitable", async () => {
